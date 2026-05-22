@@ -52,14 +52,25 @@ const RATING_LABELS = { excellent: '★★★ ممتاز', good: '★★ جيد'
 const PRIORITY_LABELS = { high: 'عالية', medium: 'متوسطة', low: 'منخفضة' };
 const UNITS = { piece: 'قطعة', m2: 'م²', m: 'م.ط', set: 'طقم', box: 'صندوق' };
 
+const EXPENSE_CATEGORIES = {
+  flight: { label: 'طيران', icon: '✈️' },
+  hotel: { label: 'فندق وإقامة', icon: '🏨' },
+  transport: { label: 'مواصلات', icon: '🚕' },
+  food: { label: 'أكل ومطاعم', icon: '🍽️' },
+  shopping: { label: 'تسوق شخصي', icon: '🛍️' },
+  misc: { label: 'متفرقات', icon: '📌' }
+};
+
 // ============ STATE ============
 let sb = null;
 let CONFIG = { url: '', key: '', password: '' };
 let products = [];
 let suppliers = [];
+let expenses = [];
 let settings = { exchangeRate: 0.51, numVillas: 4, budgets: {}, addedFromCatalog: [] };
 let editingProductId = null;
 let editingSupplierId = null;
+let editingExpenseId = null;
 let syncTimeout = null;
 
 // ============ CONFIG (stored in browser localStorage) ============
@@ -133,15 +144,17 @@ async function syncFromServer() {
   if (!sb) return;
   showSync('🔄 جاري التحميل...', 'saving');
   try {
-    const [prodRes, supRes, setRes] = await Promise.all([
+    const [prodRes, supRes, setRes, expRes] = await Promise.all([
       sb.from('products').select('*').order('created_at', { ascending: false }),
       sb.from('suppliers').select('*').order('created_at', { ascending: false }),
-      sb.from('settings').select('*').eq('id', 'main').maybeSingle()
+      sb.from('settings').select('*').eq('id', 'main').maybeSingle(),
+      sb.from('expenses').select('*').order('created_at', { ascending: false })
     ]);
     if (prodRes.error) throw prodRes.error;
     if (supRes.error) throw supRes.error;
     products = prodRes.data || [];
     suppliers = supRes.data || [];
+    expenses = (expRes && !expRes.error) ? (expRes.data || []) : [];
     if (setRes.data && setRes.data.data) {
       settings = { ...settings, ...setRes.data.data };
       if (!settings.addedFromCatalog) settings.addedFromCatalog = [];
@@ -194,6 +207,24 @@ async function deleteSupplierFromServer(id) {
     showSync('✓ حُذف', 'saved');
   } catch (e) { console.error(e); showSync('⚠️ خطأ', 'error'); }
 }
+async function saveExpenseToServer(expense) {
+  if (!sb) return;
+  showSync('💾 جاري الحفظ...', 'saving');
+  try {
+    const { error } = await sb.from('expenses').upsert(expense);
+    if (error) throw error;
+    showSync('✓ محفوظ', 'saved');
+  } catch (e) { console.error(e); showSync('⚠️ خطأ', 'error'); alert('خطأ في حفظ المصروف. تأكد إنك نفّذت كود SQL الجديد لجدول المصاريف.\n\n' + (e.message || e)); }
+}
+async function deleteExpenseFromServer(id) {
+  if (!sb) return;
+  showSync('🗑️ جاري الحذف...', 'saving');
+  try {
+    const { error } = await sb.from('expenses').delete().eq('id', id);
+    if (error) throw error;
+    showSync('✓ حُذف', 'saved');
+  } catch (e) { console.error(e); showSync('⚠️ خطأ', 'error'); }
+}
 async function saveSettingsToServer() {
   if (!sb) return;
   clearTimeout(syncTimeout);
@@ -216,9 +247,10 @@ async function clearAllData() {
     await Promise.all([
       sb.from('products').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
       sb.from('suppliers').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
+      sb.from('expenses').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
       sb.from('settings').delete().eq('id', 'main')
     ]);
-    products = []; suppliers = [];
+    products = []; suppliers = []; expenses = [];
     settings = { exchangeRate: 0.51, numVillas: 4, budgets: {}, addedFromCatalog: [] };
     document.getElementById('exchange-rate').value = 0.51;
     document.getElementById('num-villas').value = 4;
@@ -235,6 +267,7 @@ function switchTab(name) {
   document.querySelector(`.tab[data-tab="${name}"]`).classList.add('active');
   if (name === 'compare') renderComparison();
   if (name === 'budget') renderBudget();
+  if (name === 'expenses') renderExpenses();
   if (name === 'checklist') renderChecklist();
 }
 
@@ -459,6 +492,103 @@ async function deleteSupplier(id) {
   renderAll();
 }
 
+// ============ EXPENSE MODAL ============
+function openExpenseModal(id) {
+  editingExpenseId = id || null;
+  document.getElementById('expense-modal-title').textContent = id ? 'تعديل مصروف' : 'مصروف جديد';
+  if (id) {
+    const x = expenses.find(e => e.id === id);
+    if (x) {
+      document.getElementById('e-name').value = x.name || '';
+      document.getElementById('e-category').value = x.category || 'misc';
+      document.getElementById('e-amount').value = x.amount || '';
+      document.getElementById('e-currency').value = x.currency || 'rmb';
+      document.getElementById('e-date').value = x.date || '';
+      document.getElementById('e-notes').value = x.notes || '';
+      document.getElementById('e-photo-preview').innerHTML = x.photo ? `<img src="${x.photo}" data-img="${x.photo}"><button class="remove-photo" onclick="document.getElementById('e-photo-preview').innerHTML=''">× حذف الصورة</button>` : '';
+      updateExpenseQR();
+    }
+  } else {
+    ['e-name','e-amount','e-notes'].forEach(i=>document.getElementById(i).value='');
+    document.getElementById('e-category').value = 'flight';
+    document.getElementById('e-currency').value = 'rmb';
+    document.getElementById('e-date').value = new Date().toISOString().split('T')[0];
+    document.getElementById('e-notes').value = '';
+    document.getElementById('e-photo-preview').innerHTML = '';
+    document.getElementById('e-photo').value = '';
+    document.getElementById('e-qr-preview').value = '';
+  }
+  document.getElementById('expense-modal').classList.add('show');
+}
+function closeExpenseModal() { document.getElementById('expense-modal').classList.remove('show'); editingExpenseId = null; }
+function updateExpenseQR() {
+  const amount = parseFloat(document.getElementById('e-amount').value) || 0;
+  const currency = document.getElementById('e-currency').value;
+  const qr = currency === 'rmb' ? amount * settings.exchangeRate : amount;
+  document.getElementById('e-qr-preview').value = qr.toFixed(2) + ' QR';
+}
+function expenseToQR(x) {
+  const amount = x.amount || 0;
+  return x.currency === 'rmb' ? amount * settings.exchangeRate : amount;
+}
+async function saveExpense() {
+  const name = document.getElementById('e-name').value.trim();
+  if (!name) { alert('الوصف مطلوب'); return; }
+  const photo = getPhotoData('e-photo-preview');
+  const existing = editingExpenseId ? expenses.find(x=>x.id===editingExpenseId) : null;
+  const data = {
+    id: editingExpenseId || crypto.randomUUID(), name,
+    category: document.getElementById('e-category').value,
+    amount: parseFloat(document.getElementById('e-amount').value) || 0,
+    currency: document.getElementById('e-currency').value,
+    date: document.getElementById('e-date').value || null,
+    notes: document.getElementById('e-notes').value,
+    photo,
+    created_at: existing ? existing.created_at : new Date().toISOString()
+  };
+  if (editingExpenseId) expenses = expenses.map(e => e.id === editingExpenseId ? data : e);
+  else expenses.unshift(data);
+  await saveExpenseToServer(data);
+  closeExpenseModal();
+  renderAll();
+}
+async function deleteExpense(id) {
+  if (!confirm('حذف هذا المصروف؟')) return;
+  expenses = expenses.filter(e => e.id !== id);
+  await deleteExpenseFromServer(id);
+  renderAll();
+}
+function renderExpenses() {
+  const summary = document.getElementById('expenses-summary');
+  const byCat = {};
+  let grand = 0;
+  Object.keys(EXPENSE_CATEGORIES).forEach(k => byCat[k] = 0);
+  expenses.forEach(x => { const qr = expenseToQR(x); byCat[x.category] = (byCat[x.category]||0) + qr; grand += qr; });
+
+  let sumHtml = `<div class="card" style="background:linear-gradient(135deg,#0f172a,#1e293b); color:white; border:none;"><div style="font-size:12px; opacity:0.7;">إجمالي مصاريف الرحلة</div><div style="font-size:28px; font-weight:700; margin:4px 0;">${grand.toLocaleString('en-US',{maximumFractionDigits:0})} QR</div><div style="font-size:11px; opacity:0.6;">${expenses.length} مصروف</div></div>`;
+  sumHtml += '<div class="card"><h4 style="margin:0 0 12px; font-size:14px; font-weight:600;">حسب التصنيف</h4>';
+  Object.entries(EXPENSE_CATEGORIES).forEach(([key, c]) => {
+    if (byCat[key] > 0) {
+      const pct = grand > 0 ? (byCat[key] / grand * 100) : 0;
+      sumHtml += `<div style="margin-bottom:10px"><div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:4px"><span>${c.icon} ${c.label}</span><span style="font-weight:600">${byCat[key].toLocaleString('en-US',{maximumFractionDigits:0})} QR</span></div><div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div></div>`;
+    }
+  });
+  sumHtml += '</div>';
+  summary.innerHTML = sumHtml;
+
+  const container = document.getElementById('expenses-list');
+  if (expenses.length === 0) {
+    container.innerHTML = `<div class="empty"><span class="empty-icon">✈️</span>لا توجد مصاريف بعد.<br><span style="font-size:11px">اضغط "+ مصروف جديد" لتبدأ.</span></div>`;
+    return;
+  }
+  container.innerHTML = expenses.map(x => {
+    const c = EXPENSE_CATEGORIES[x.category] || EXPENSE_CATEGORIES.misc;
+    const qr = expenseToQR(x);
+    const origLabel = x.currency === 'rmb' ? `¥${(x.amount||0).toFixed(2)}` : `${(x.amount||0).toFixed(2)} QR`;
+    return `<div class="card"><div class="card-row">${x.photo ? `<img class="card-img" src="${x.photo}">` : `<div class="card-img card-img-placeholder">${c.icon}</div>`}<div class="card-content"><div style="display:flex; justify-content:space-between; gap:8px; align-items:flex-start;"><div><div class="card-title">${escapeHtml(x.name)}</div><div class="card-sub">${c.icon} ${c.label}${x.date ? ' · ' + x.date : ''}</div></div></div><div class="card-meta">💴 <strong>${origLabel}</strong>${x.currency === 'rmb' ? ` = ${qr.toLocaleString('en-US',{maximumFractionDigits:0})} QR` : ''}</div>${x.notes ? `<div class="card-sub" style="margin-top:4px; font-style:italic">${escapeHtml(x.notes)}</div>` : ''}<div class="card-actions"><button class="card-btn" onclick="openExpenseModal('${x.id}')">✏️ تعديل</button><button class="card-btn danger" onclick="deleteExpense('${x.id}')">🗑️</button></div></div></div></div>`;
+  }).join('');
+}
+
 // ============ RENDER ============
 function escapeHtml(s) {
   if (!s) return '';
@@ -534,21 +664,18 @@ async function updateBudget(key, val) {
   updateStats();
 }
 function updateStats() {
-  document.getElementById('stat-suppliers').textContent = suppliers.length;
   document.getElementById('stat-products').textContent = products.length;
-  const totalSpent = products.reduce((sum, p) => { const totalQty = Math.ceil((p.qty_per_villa||0) * settings.numVillas * 1.1); return sum + (totalQty * (p.price_rmb||0) * settings.exchangeRate); }, 0);
-  document.getElementById('stat-total').textContent = totalSpent.toLocaleString('en-US',{maximumFractionDigits:0});
-  const totalBudget = Object.values(settings.budgets).reduce((a,b) => a + (b||0), 0);
-  if (totalBudget > 0) {
-    const rem = totalBudget - totalSpent;
-    document.getElementById('stat-remaining').textContent = rem.toLocaleString('en-US',{maximumFractionDigits:0});
-    document.getElementById('stat-remaining').style.color = rem < 0 ? '#fca5a5' : '';
-  } else { document.getElementById('stat-remaining').textContent = '—'; }
+  const totalBuild = products.reduce((sum, p) => { const totalQty = Math.ceil((p.qty_per_villa||0) * settings.numVillas * 1.1); return sum + (totalQty * (p.price_rmb||0) * settings.exchangeRate); }, 0);
+  const totalPersonal = expenses.reduce((sum, x) => sum + expenseToQR(x), 0);
+  const grand = totalBuild + totalPersonal;
+  document.getElementById('stat-total').textContent = totalBuild.toLocaleString('en-US',{maximumFractionDigits:0});
+  document.getElementById('stat-personal').textContent = totalPersonal.toLocaleString('en-US',{maximumFractionDigits:0});
+  document.getElementById('stat-grand').textContent = grand.toLocaleString('en-US',{maximumFractionDigits:0});
 }
-function renderAll() { updateStats(); renderChecklist(); renderProducts(); renderSuppliers(); }
+function renderAll() { updateStats(); renderChecklist(); renderProducts(); renderSuppliers(); renderExpenses(); }
 
 function exportData() {
-  const data = { products, suppliers, settings, exportedAt: new Date().toISOString() };
+  const data = { products, suppliers, expenses, settings, exportedAt: new Date().toISOString() };
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
