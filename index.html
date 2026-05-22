@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="China Sourcing">
+<meta name="theme-color" content="#0f172a">
+<title>China Sourcing - مشروع سلوى ١</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏗️</text></svg>">
+<link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏗️</text></svg>">
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; padding: 0; font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #f1f5f9; color: #0f172a; line-height: 1.5; }
+  body { padding-bottom: env(safe-area-inset-bottom); }
+  button { font-family: inherit; cursor: pointer; }
+  input, select, textarea, button { font-family: inherit; font-size: 16px; }
+
+  /* Setup & Login screens */
+  .fullscreen { position: fixed; inset: 0; background: linear-gradient(180deg, #0f172a, #1e293b); display: flex; align-items: center; justify-content: center; z-index: 10000; padding: 20px; overflow-y: auto; }
+  .auth-box { background: white; border-radius: 16px; padding: 28px 22px; max-width: 400px; width: 100%; box-shadow: 0 20px 50px rgba(0,0,0,0.3); margin: auto; }
+  .auth-box h1 { margin: 0 0 4px 0; font-size: 22px; text-align: center; }
+  .auth-box .sub { text-align: center; color: #64748b; font-size: 13px; margin-bottom: 22px; }
+  .auth-box label { display: block; font-size: 12px; color: #475569; font-weight: 600; margin-bottom: 4px; margin-top: 12px; }
+  .auth-box input { width: 100%; padding: 12px 14px; border: 1px solid #cbd5e1; border-radius: 10px; }
+  .auth-box .hint { font-size: 11px; color: #94a3b8; margin-top: 4px; }
+  .auth-box button.primary { width: 100%; padding: 13px; background: #0f172a; color: white; border: none; border-radius: 10px; font-weight: 600; font-size: 15px; margin-top: 18px; }
+  .auth-error { color: #dc2626; font-size: 13px; text-align: center; margin-top: 10px; min-height: 18px; }
+  .step-num { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; background: #dbeafe; color: #1d4ed8; border-radius: 50%; font-size: 12px; font-weight: 700; margin-left: 6px; }
+  .setup-help { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px; font-size: 12px; color: #475569; margin-bottom: 16px; line-height: 1.6; }
+  .setup-help a { color: #2563eb; }
+
+  /* Main layout */
+  .app { max-width: 720px; margin: 0 auto; padding: 12px 12px 80px; }
+  .header { background: linear-gradient(135deg, #0f172a, #1e293b); color: white; padding: 16px; border-radius: 14px; margin-bottom: 12px; }
+  .header-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+  .header h1 { margin: 0; font-size: 17px; font-weight: 600; }
+  .header .sub { margin: 2px 0 0 0; font-size: 12px; opacity: 0.7; }
+  .header-actions { display: flex; gap: 6px; }
+  .icon-btn { background: rgba(255,255,255,0.1); border: none; color: white; width: 34px; height: 34px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; font-size: 16px; }
+  .icon-btn:active { background: rgba(255,255,255,0.2); }
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .stat { background: rgba(255,255,255,0.08); border-radius: 8px; padding: 8px 6px; text-align: center; }
+  .stat-label { font-size: 10px; opacity: 0.7; }
+  .stat-value { font-size: 16px; font-weight: 600; margin-top: 2px; }
+
+  /* Tabs */
+  .tabs { display: flex; gap: 4px; background: white; padding: 4px; border-radius: 10px; margin-bottom: 12px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab { flex: 1; min-width: max-content; padding: 10px 12px; border: none; background: transparent; color: #64748b; font-size: 13px; border-radius: 8px; white-space: nowrap; font-weight: 500; }
+  .tab.active { background: #0f172a; color: white; }
+
+  /* Cards */
+  .card { background: white; border-radius: 12px; padding: 12px; margin-bottom: 10px; border: 1px solid #e2e8f0; }
+  .card-row { display: flex; gap: 12px; }
+  .card-img { width: 80px; height: 80px; border-radius: 10px; object-fit: cover; flex-shrink: 0; background: #f1f5f9; }
+  .card-img-placeholder { background: #f1f5f9; display: flex; align-items: center; justify-content: center; color: #94a3b8; font-size: 28px; }
+  .card-content { flex: 1; min-width: 0; }
+  .card-title { font-weight: 600; font-size: 14px; }
+  .card-sub { font-size: 12px; color: #64748b; margin-top: 2px; }
+  .card-meta { font-size: 12px; margin-top: 4px; }
+  .card-meta strong { color: #0f172a; }
+  .card-actions { display: flex; gap: 6px; margin-top: 8px; }
+  .card-btn { padding: 5px 10px; background: #f1f5f9; border: none; border-radius: 6px; font-size: 11px; color: #475569; }
+  .card-btn.danger { color: #dc2626; }
+
+  /* Filters */
+  .filters { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+  .filters select, .filters input { flex: 1; min-width: 120px; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 10px; background: white; }
+
+  .btn-add-bar { width: 100%; padding: 12px; background: #0f172a; color: white; border: none; border-radius: 12px; font-size: 14px; font-weight: 500; margin-bottom: 12px; }
+
+  /* Badge */
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 100px; font-size: 11px; font-weight: 500; }
+  .badge-considering { background: #f1f5f9; color: #64748b; }
+  .badge-shortlist { background: #dbeafe; color: #1d4ed8; }
+  .badge-confirmed, .badge-ordered { background: #dcfce7; color: #15803d; }
+  .badge-rejected { background: #fee2e2; color: #b91c1c; }
+  .badge-high { background: #fee2e2; color: #b91c1c; }
+  .badge-medium { background: #fef3c7; color: #92400e; }
+  .badge-low { background: #f1f5f9; color: #64748b; }
+
+  /* Modal */
+  .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 9000; display: none; align-items: flex-end; justify-content: center; }
+  .modal.show { display: flex; }
+  .modal-content { background: white; border-radius: 16px 16px 0 0; width: 100%; max-width: 720px; max-height: 92vh; overflow-y: auto; padding: 20px; padding-bottom: calc(20px + env(safe-area-inset-bottom)); }
+  @media (min-width: 720px) { .modal { align-items: center; padding: 20px; } .modal-content { border-radius: 16px; max-height: 85vh; } }
+  .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #e2e8f0; }
+  .modal-header h3 { margin: 0; font-size: 17px; font-weight: 600; }
+  .modal-close { background: #f1f5f9; border: none; width: 30px; height: 30px; border-radius: 8px; font-size: 18px; color: #475569; }
+  .field { margin-bottom: 12px; }
+  .field label { display: block; font-size: 12px; color: #64748b; margin-bottom: 4px; font-weight: 500; }
+  .field input, .field select, .field textarea { width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 10px; background: white; }
+  .field input:disabled { background: #f8fafc; color: #475569; }
+  .field-row { display: grid; gap: 8px; }
+  .field-row.cols-2 { grid-template-columns: 1fr 1fr; }
+  .field-row.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
+  .modal-actions { display: flex; gap: 8px; margin-top: 16px; padding-top: 12px; border-top: 1px solid #e2e8f0; }
+  .modal-actions button { flex: 1; padding: 12px; border-radius: 10px; border: none; font-weight: 500; font-size: 14px; }
+  .btn-save { background: #0f172a; color: white; }
+  .btn-cancel { background: #f1f5f9; color: #475569; }
+
+  .photo-preview { margin-top: 8px; }
+  .photo-preview img { max-width: 100%; max-height: 200px; border-radius: 10px; border: 1px solid #e2e8f0; }
+  .photo-preview .remove-photo { display: inline-block; margin-top: 6px; font-size: 12px; color: #dc2626; background: none; border: none; padding: 0; cursor: pointer; }
+
+  .checklist-item { background: white; border-radius: 10px; padding: 10px 12px; margin-bottom: 6px; border: 1px solid #e2e8f0; display: flex; align-items: center; gap: 10px; }
+  .checklist-info { flex: 1; min-width: 0; }
+  .checklist-title-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .checklist-name { font-size: 13px; font-weight: 600; }
+  .checklist-qty { font-size: 11px; color: #64748b; margin-top: 3px; }
+  .checklist-note { font-size: 11px; color: #94a3b8; margin-top: 3px; font-style: italic; }
+  .add-btn { padding: 7px 12px; border-radius: 8px; border: none; background: #0f172a; color: white; font-size: 11px; white-space: nowrap; font-weight: 500; }
+  .add-btn.added { background: #dcfce7; color: #15803d; }
+
+  .section-h { display: flex; align-items: center; gap: 8px; margin: 16px 0 8px; }
+  .section-h h4 { margin: 0; font-size: 13px; font-weight: 600; }
+  .section-h .count { font-size: 11px; color: #94a3b8; }
+
+  .empty { text-align: center; padding: 40px 20px; color: #94a3b8; font-size: 13px; }
+  .empty-icon { font-size: 40px; opacity: 0.5; margin-bottom: 8px; display: block; }
+
+  .compare-group { background: white; border-radius: 12px; padding: 12px; margin-bottom: 10px; border: 1px solid #e2e8f0; }
+  .compare-savings { font-size: 12px; color: #15803d; margin-bottom: 8px; }
+  .compare-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; background: #f8fafc; border-radius: 8px; margin-bottom: 4px; font-size: 12px; }
+  .compare-row.best { background: #dcfce7; }
+  .best-tag { color: #15803d; font-size: 10px; font-weight: 600; margin-left: 4px; }
+
+  .budget-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+  .budget-row > span { font-size: 13px; flex: 1; }
+  .budget-row input { width: 110px; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 8px; text-align: end; font-size: 13px; }
+  .progress-bar { height: 6px; background: #f1f5f9; border-radius: 3px; overflow: hidden; margin-top: 4px; }
+  .progress-fill { height: 100%; background: #2563eb; }
+  .progress-fill.over { background: #dc2626; }
+
+  .info-banner { background: #dbeafe; color: #1e40af; padding: 10px 12px; border-radius: 10px; font-size: 12px; margin-bottom: 12px; }
+
+  #sync-status { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); background: #0f172a; color: white; padding: 8px 16px; border-radius: 100px; font-size: 12px; display: none; align-items: center; gap: 6px; box-shadow: 0 4px 20px rgba(0,0,0,0.2); z-index: 5000; }
+  #sync-status.show { display: flex; }
+  #sync-status.saving { background: #1d4ed8; }
+  #sync-status.error { background: #dc2626; }
+  #sync-status.saved { background: #15803d; }
+
+  #loading { position: fixed; inset: 0; background: #f1f5f9; display: flex; align-items: center; justify-content: center; z-index: 9999; }
+  .spinner { width: 32px; height: 32px; border: 3px solid #cbd5e1; border-top-color: #0f172a; border-radius: 50%; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<div id="loading"><div class="spinner"></div></div>
+
+<!-- SETUP SCREEN (first time only) -->
+<div id="setup-screen" class="fullscreen" style="display:none">
+  <div class="auth-box">
+    <h1>🏗️ China Sourcing</h1>
+    <p class="sub">إعداد لمرة واحدة — مشروع سلوى ١</p>
+    <div class="setup-help">
+      الصق هنا معلومات Supabase اللي نسختها. تنحفظ على جهازك بس، وما تحتاج تكررها.
+    </div>
+    <label>Project URL <span class="step-num">1</span></label>
+    <input id="setup-url" placeholder="https://xxxxx.supabase.co" dir="ltr">
+    <div class="hint">من Supabase → Settings → API → Project URL</div>
+    <label>API Key (anon / publishable) <span class="step-num">2</span></label>
+    <input id="setup-key" placeholder="eyJ... أو sb_publishable_..." dir="ltr">
+    <div class="hint">من Supabase → Settings → API Keys</div>
+    <label>كلمة سر الموقع <span class="step-num">3</span></label>
+    <input id="setup-password" type="text" placeholder="اختر كلمة سر تدخل فيها للموقع">
+    <div class="hint">راح تستخدمها كل مرة تفتح الموقع</div>
+    <button class="primary" onclick="saveSetup()">حفظ وبدء الاستخدام</button>
+    <div class="auth-error" id="setup-error"></div>
+  </div>
+</div>
+
+<!-- LOGIN SCREEN -->
+<div id="login-screen" class="fullscreen" style="display:none">
+  <div class="auth-box">
+    <h1>🏗️ China Sourcing</h1>
+    <p class="sub">مشروع سلوى ١ — مجموعة لؤلؤة الماجد</p>
+    <label>كلمة السر</label>
+    <input type="password" id="login-password" placeholder="كلمة السر" autocomplete="current-password">
+    <button class="primary" onclick="handleLogin()">دخول</button>
+    <div class="auth-error" id="login-error"></div>
+    <div style="text-align:center; margin-top:14px;">
+      <button onclick="resetSetup()" style="background:none; border:none; color:#94a3b8; font-size:12px; text-decoration:underline;">إعادة الإعداد</button>
+    </div>
+  </div>
+</div>
+
+<div id="sync-status"></div>
+
+<!-- MAIN APP -->
+<div class="app" id="app" style="display:none">
+  <div class="header">
+    <div class="header-top">
+      <div>
+        <h1>🏗️ China Sourcing</h1>
+        <div class="sub">مشروع سلوى ١ — ٤ فلل</div>
+      </div>
+      <div class="header-actions">
+        <button class="icon-btn" onclick="exportData()" title="تصدير نسخة احتياطية">⬇️</button>
+        <button class="icon-btn" onclick="handleLogout()" title="خروج">🚪</button>
+      </div>
+    </div>
+    <div class="stats">
+      <div class="stat"><div class="stat-label">موردين</div><div class="stat-value" id="stat-suppliers">0</div></div>
+      <div class="stat"><div class="stat-label">منتجات</div><div class="stat-value" id="stat-products">0</div></div>
+      <div class="stat"><div class="stat-label">إجمالي QR</div><div class="stat-value" id="stat-total">0</div></div>
+      <div class="stat"><div class="stat-label">متبقي</div><div class="stat-value" id="stat-remaining">—</div></div>
+    </div>
+  </div>
+
+  <div class="tabs" id="tabs">
+    <button class="tab active" data-tab="checklist" onclick="switchTab('checklist')">📋 قائمة البنود</button>
+    <button class="tab" data-tab="products" onclick="switchTab('products')">📦 المنتجات</button>
+    <button class="tab" data-tab="suppliers" onclick="switchTab('suppliers')">🏢 الموردين</button>
+    <button class="tab" data-tab="compare" onclick="switchTab('compare')">⚖️ مقارنة</button>
+    <button class="tab" data-tab="budget" onclick="switchTab('budget')">💰 الميزانية</button>
+    <button class="tab" data-tab="settings" onclick="switchTab('settings')">⚙️ إعدادات</button>
+  </div>
+
+  <div id="tab-checklist" class="tab-content">
+    <div class="info-banner">قائمة بنود جاهزة محسوبة لـ ٤ فلل B+G+1+P. اضغط "إضافة" لتبدأ تتبع البند مع السعر والمورد.</div>
+    <div class="filters">
+      <select id="checklist-filter" onchange="renderChecklist()">
+        <option value="">كل الفئات</option>
+        <option value="ceramics">سيراميك ورخام</option>
+        <option value="doors">أبواب ونوافذ</option>
+        <option value="lighting">إنارة وحمامات</option>
+        <option value="kitchen">مطابخ ودواليب</option>
+        <option value="other">أخرى</option>
+      </select>
+      <select id="checklist-priority" onchange="renderChecklist()">
+        <option value="">كل الأولويات</option>
+        <option value="high">أولوية عالية</option>
+        <option value="medium">أولوية متوسطة</option>
+        <option value="low">أولوية منخفضة</option>
+      </select>
+    </div>
+    <div id="checklist-list"></div>
+  </div>
+
+  <div id="tab-products" class="tab-content" style="display:none">
+    <button class="btn-add-bar" onclick="openProductModal()">+ منتج جديد</button>
+    <div class="filters">
+      <select id="filter-category" onchange="renderProducts()">
+        <option value="">كل الفئات</option>
+        <option value="ceramics">سيراميك ورخام</option>
+        <option value="doors">أبواب ونوافذ</option>
+        <option value="lighting">إنارة وحمامات</option>
+        <option value="kitchen">مطابخ ودواليب</option>
+        <option value="other">أخرى</option>
+      </select>
+      <input id="search-products" type="search" placeholder="🔍 بحث..." oninput="renderProducts()">
+    </div>
+    <div id="products-list"></div>
+  </div>
+
+  <div id="tab-suppliers" class="tab-content" style="display:none">
+    <button class="btn-add-bar" onclick="openSupplierModal()">+ مورد جديد</button>
+    <div id="suppliers-list"></div>
+  </div>
+
+  <div id="tab-compare" class="tab-content" style="display:none">
+    <div class="field" style="margin-bottom: 12px">
+      <label>اختر فئة للمقارنة</label>
+      <select id="compare-category" onchange="renderComparison()">
+        <option value="ceramics">سيراميك ورخام</option>
+        <option value="doors">أبواب ونوافذ</option>
+        <option value="lighting">إنارة وحمامات</option>
+        <option value="kitchen">مطابخ ودواليب</option>
+        <option value="other">أخرى</option>
+      </select>
+    </div>
+    <div id="compare-list"></div>
+  </div>
+
+  <div id="tab-budget" class="tab-content" style="display:none">
+    <div class="card">
+      <h4 style="margin: 0 0 12px; font-size: 14px; font-weight: 600;">الميزانية المخططة</h4>
+      <div id="budget-inputs"></div>
+      <div style="margin-top: 14px; padding-top: 12px; border-top: 1px solid #e2e8f0;">
+        <label style="font-size: 12px; color: #64748b;">سعر الصرف (1 RMB = ؟ QR)</label>
+        <input type="number" id="exchange-rate" step="0.01" value="0.51" oninput="saveSettings()" style="width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 10px; margin-top: 4px;">
+      </div>
+    </div>
+    <div id="budget-summary"></div>
+  </div>
+
+  <div id="tab-settings" class="tab-content" style="display:none">
+    <div class="card">
+      <h4 style="margin: 0 0 12px; font-size: 14px; font-weight: 600;">إعدادات المشروع</h4>
+      <div class="field">
+        <label>عدد الفلل</label>
+        <input type="number" id="num-villas" min="1" value="4" oninput="saveSettings()">
+      </div>
+      <p style="font-size: 12px; color: #64748b;">يستخدم لحساب الكميات الإجمالية تلقائياً.</p>
+      <div style="margin-top: 14px; padding-top: 12px; border-top: 1px solid #e2e8f0;">
+        <h4 style="margin: 0 0 8px; font-size: 13px; font-weight: 600;">المزامنة</h4>
+        <p style="font-size: 12px; color: #64748b; margin: 0;">آخر مزامنة: <span id="last-sync">—</span></p>
+        <button onclick="syncFromServer()" style="margin-top: 8px; padding: 8px 14px; background: #f1f5f9; border: none; border-radius: 8px; font-size: 13px;">🔄 مزامنة الآن</button>
+      </div>
+    </div>
+    <div class="card" style="margin-top: 12px;">
+      <h4 style="margin: 0 0 8px; font-size: 13px; font-weight: 600; color: #dc2626;">منطقة الخطر</h4>
+      <button onclick="if(confirm('متأكد من مسح كل البيانات؟ هذا لا يمكن التراجع عنه.')) clearAllData()" style="padding: 10px 14px; background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; border-radius: 8px; font-size: 13px;">🗑️ مسح كل البيانات</button>
+    </div>
+  </div>
+</div>
+
+<!-- PRODUCT MODAL -->
+<div id="product-modal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3 id="product-modal-title">منتج جديد</h3>
+      <button class="modal-close" onclick="closeProductModal()">×</button>
+    </div>
+    <div class="field"><label>اسم المنتج *</label><input id="p-name" placeholder="مثال: سيراميك أرضيات 60x60"></div>
+    <div class="field-row cols-2">
+      <div class="field"><label>الفئة</label><select id="p-category">
+        <option value="ceramics">سيراميك ورخام</option>
+        <option value="doors">أبواب ونوافذ</option>
+        <option value="lighting">إنارة وحمامات</option>
+        <option value="kitchen">مطابخ ودواليب</option>
+        <option value="other">أخرى</option>
+      </select></div>
+      <div class="field"><label>المورد</label><select id="p-supplier"><option value="">— اختر —</option></select></div>
+    </div>
+    <div class="field">
+      <label>📷 صورة المنتج</label>
+      <input id="p-photo" type="file" accept="image/*" capture="environment" onchange="previewPhoto(this, 'p-photo-preview')">
+      <div id="p-photo-preview" class="photo-preview"></div>
+    </div>
+    <div class="field-row cols-3">
+      <div class="field"><label>السعر (RMB)</label><input id="p-price-rmb" type="number" step="0.01" placeholder="0.00" oninput="updateQRPreview()"></div>
+      <div class="field"><label>الوحدة</label><select id="p-unit" onchange="updateTotalPreview()">
+        <option value="piece">قطعة</option>
+        <option value="m2">م²</option>
+        <option value="m">م.طولي</option>
+        <option value="set">طقم</option>
+        <option value="box">صندوق</option>
+      </select></div>
+      <div class="field"><label>≈ QR</label><input id="p-price-qr-preview" disabled></div>
+    </div>
+    <div class="field-row cols-2">
+      <div class="field"><label>الكمية للفيلا</label><input id="p-qty-villa" type="number" step="0.01" placeholder="0" oninput="updateTotalPreview()"></div>
+      <div class="field"><label>إجمالي (٤ فلل +١٠٪)</label><input id="p-qty-total" disabled></div>
+    </div>
+    <div class="field"><label>الإجمالي المتوقع (QR)</label><input id="p-total-qr" disabled style="font-weight: 600;"></div>
+    <div class="field"><label>الموديل / الكود</label><input id="p-model" placeholder="موديل/كود المنتج"></div>
+    <div class="field"><label>ملاحظات</label><textarea id="p-notes" rows="2" placeholder="جودة، لون، MOQ، وقت التسليم..."></textarea></div>
+    <div class="field"><label>الحالة</label><select id="p-status">
+      <option value="considering">قيد الدراسة</option>
+      <option value="shortlist">على القائمة المختصرة</option>
+      <option value="confirmed">مؤكد</option>
+      <option value="ordered">تم الطلب</option>
+      <option value="rejected">مرفوض</option>
+    </select></div>
+    <div class="modal-actions">
+      <button class="btn-save" onclick="saveProduct()">✓ حفظ</button>
+      <button class="btn-cancel" onclick="closeProductModal()">إلغاء</button>
+    </div>
+  </div>
+</div>
+
+<!-- SUPPLIER MODAL -->
+<div id="supplier-modal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3 id="supplier-modal-title">مورد جديد</h3>
+      <button class="modal-close" onclick="closeSupplierModal()">×</button>
+    </div>
+    <div class="field"><label>اسم الشركة *</label><input id="s-name" placeholder="Company name"></div>
+    <div class="field">
+      <label>📷 صورة الكرت</label>
+      <input id="s-card" type="file" accept="image/*" capture="environment" onchange="previewPhoto(this, 's-card-preview')">
+      <div id="s-card-preview" class="photo-preview"></div>
+    </div>
+    <div class="field-row cols-2">
+      <div class="field"><label>الشخص المسؤول</label><input id="s-contact"></div>
+      <div class="field"><label>المدينة</label><input id="s-city" placeholder="Guangzhou..."></div>
+    </div>
+    <div class="field-row cols-2">
+      <div class="field"><label>WeChat / WhatsApp</label><input id="s-wechat"></div>
+      <div class="field"><label>إيميل</label><input id="s-email" type="email"></div>
+    </div>
+    <div class="field"><label>العنوان</label><textarea id="s-address" rows="2"></textarea></div>
+    <div class="field"><label>التخصص</label><input id="s-specialty" placeholder="مثال: سيراميك، إنارة..."></div>
+    <div class="field"><label>التقييم</label><select id="s-rating">
+      <option value="">— لم يقيّم —</option>
+      <option value="excellent">★★★ ممتاز</option>
+      <option value="good">★★ جيد</option>
+      <option value="average">★ متوسط</option>
+      <option value="poor">✗ ضعيف</option>
+    </select></div>
+    <div class="field"><label>ملاحظات</label><textarea id="s-notes" rows="2" placeholder="MOQ، شروط الدفع..."></textarea></div>
+    <div class="modal-actions">
+      <button class="btn-save" onclick="saveSupplier()">✓ حفظ</button>
+      <button class="btn-cancel" onclick="closeSupplierModal()">إلغاء</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="app.js"></script>
+</body>
+</html>
