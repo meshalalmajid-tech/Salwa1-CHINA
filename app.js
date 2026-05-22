@@ -53,7 +53,7 @@ const PRIORITY_LABELS = { high: 'عالية', medium: 'متوسطة', low: 'من
 const UNITS = { piece: 'قطعة', m2: 'م²', m: 'م.ط', set: 'طقم', box: 'صندوق' };
 
 // ============ STATE ============
-let supabase = null;
+let sb = null;
 let CONFIG = { url: '', key: '', password: '' };
 let products = [];
 let suppliers = [];
@@ -74,7 +74,7 @@ function saveSetup() {
   const url = document.getElementById('setup-url').value.trim();
   const key = document.getElementById('setup-key').value.trim();
   const password = document.getElementById('setup-password').value.trim();
-  if (!url.includes('supabase.co')) { document.getElementById('setup-error').textContent = 'الرابط لازm يكون من supabase.co'; return; }
+  if (!url.includes('supabase.co')) { document.getElementById('setup-error').textContent = 'الرابط لازم يكون من supabase.co'; return; }
   if (key.length < 20) { document.getElementById('setup-error').textContent = 'المفتاح غير صحيح'; return; }
   if (!password) { document.getElementById('setup-error').textContent = 'اكتب كلمة سر'; return; }
   CONFIG = { url, key, password };
@@ -120,7 +120,7 @@ function showSync(text, type = 'saving') {
 // ============ SUPABASE ============
 async function initSupabase() {
   try {
-    supabase = window.supabase.createClient(CONFIG.url, CONFIG.key);
+    sb = window.supabase.createClient(CONFIG.url, CONFIG.key);
     return true;
   } catch (e) {
     console.error('Supabase init failed:', e);
@@ -130,13 +130,13 @@ async function initSupabase() {
 }
 
 async function syncFromServer() {
-  if (!supabase) return;
+  if (!sb) return;
   showSync('🔄 جاري التحميل...', 'saving');
   try {
     const [prodRes, supRes, setRes] = await Promise.all([
-      supabase.from('products').select('*').order('created_at', { ascending: false }),
-      supabase.from('suppliers').select('*').order('created_at', { ascending: false }),
-      supabase.from('settings').select('*').eq('id', 'main').maybeSingle()
+      sb.from('products').select('*').order('created_at', { ascending: false }),
+      sb.from('suppliers').select('*').order('created_at', { ascending: false }),
+      sb.from('settings').select('*').eq('id', 'main').maybeSingle()
     ]);
     if (prodRes.error) throw prodRes.error;
     if (supRes.error) throw supRes.error;
@@ -159,47 +159,47 @@ async function syncFromServer() {
 }
 
 async function saveProductToServer(product) {
-  if (!supabase) return;
+  if (!sb) return;
   showSync('💾 جاري الحفظ...', 'saving');
   try {
-    const { error } = await supabase.from('products').upsert(product);
+    const { error } = await sb.from('products').upsert(product);
     if (error) throw error;
     showSync('✓ محفوظ', 'saved');
   } catch (e) { console.error(e); showSync('⚠️ خطأ', 'error'); }
 }
 async function deleteProductFromServer(id) {
-  if (!supabase) return;
+  if (!sb) return;
   showSync('🗑️ جاري الحذف...', 'saving');
   try {
-    const { error } = await supabase.from('products').delete().eq('id', id);
+    const { error } = await sb.from('products').delete().eq('id', id);
     if (error) throw error;
     showSync('✓ حُذف', 'saved');
   } catch (e) { console.error(e); showSync('⚠️ خطأ', 'error'); }
 }
 async function saveSupplierToServer(supplier) {
-  if (!supabase) return;
+  if (!sb) return;
   showSync('💾 جاري الحفظ...', 'saving');
   try {
-    const { error } = await supabase.from('suppliers').upsert(supplier);
+    const { error } = await sb.from('suppliers').upsert(supplier);
     if (error) throw error;
     showSync('✓ محفوظ', 'saved');
   } catch (e) { console.error(e); showSync('⚠️ خطأ', 'error'); }
 }
 async function deleteSupplierFromServer(id) {
-  if (!supabase) return;
+  if (!sb) return;
   showSync('🗑️ جاري الحذف...', 'saving');
   try {
-    const { error } = await supabase.from('suppliers').delete().eq('id', id);
+    const { error } = await sb.from('suppliers').delete().eq('id', id);
     if (error) throw error;
     showSync('✓ حُذف', 'saved');
   } catch (e) { console.error(e); showSync('⚠️ خطأ', 'error'); }
 }
 async function saveSettingsToServer() {
-  if (!supabase) return;
+  if (!sb) return;
   clearTimeout(syncTimeout);
   syncTimeout = setTimeout(async () => {
     try {
-      const { error } = await supabase.from('settings').upsert({ id: 'main', data: settings });
+      const { error } = await sb.from('settings').upsert({ id: 'main', data: settings });
       if (error) throw error;
     } catch (e) { console.error(e); }
   }, 500);
@@ -214,9 +214,9 @@ async function clearAllData() {
   showSync('🗑️ جاري المسح...', 'saving');
   try {
     await Promise.all([
-      supabase.from('products').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
-      supabase.from('suppliers').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
-      supabase.from('settings').delete().eq('id', 'main')
+      sb.from('products').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
+      sb.from('suppliers').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
+      sb.from('settings').delete().eq('id', 'main')
     ]);
     products = []; suppliers = [];
     settings = { exchangeRate: 0.51, numVillas: 4, budgets: {}, addedFromCatalog: [] };
