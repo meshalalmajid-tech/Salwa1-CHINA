@@ -61,13 +61,19 @@ const EXPENSE_CATEGORIES = {
   misc: { label: 'متفرقات', icon: '📌' }
 };
 
+const CONTAINERS = [
+  { name: 'كونتينر 20 قدم', cbm: 28 },
+  { name: 'كونتينر 40 قدم', cbm: 58 },
+  { name: 'كونتينر 40 HQ', cbm: 68 }
+];
+
 // ============ STATE ============
 let sb = null;
 let CONFIG = { url: '', key: '', password: '' };
 let products = [];
 let suppliers = [];
 let expenses = [];
-let settings = { exchangeRate: 0.51, numVillas: 4, budgets: {}, addedFromCatalog: [] };
+let settings = { exchangeRate: 0.51, numVillas: 4, budgets: {}, addedFromCatalog: [], cbmRate: 0 };
 let editingProductId = null;
 let editingSupplierId = null;
 let editingExpenseId = null;
@@ -85,7 +91,7 @@ function saveSetup() {
   const url = document.getElementById('setup-url').value.trim();
   const key = document.getElementById('setup-key').value.trim();
   const password = document.getElementById('setup-password').value.trim();
-  if (!url.includes('supabase.co')) { document.getElementById('setup-error').textContent = 'الرابط لازم يكون من supabase.co'; return; }
+  if (!url.includes('supabase.co')) { document.getElementById('setup-error').textContent = 'الرابط لازm يكون من supabase.co'; return; }
   if (key.length < 20) { document.getElementById('setup-error').textContent = 'المفتاح غير صحيح'; return; }
   if (!password) { document.getElementById('setup-error').textContent = 'اكتب كلمة سر'; return; }
   CONFIG = { url, key, password };
@@ -161,6 +167,8 @@ async function syncFromServer() {
     }
     document.getElementById('exchange-rate').value = settings.exchangeRate;
     document.getElementById('num-villas').value = settings.numVillas;
+    const cbmRateEl = document.getElementById('cbm-rate');
+    if (cbmRateEl) cbmRateEl.value = settings.cbmRate || '';
     document.getElementById('last-sync').textContent = new Date().toLocaleString('ar-QA');
     renderAll();
     showSync('✓ متزامن', 'saved');
@@ -267,6 +275,7 @@ function switchTab(name) {
   document.querySelector(`.tab[data-tab="${name}"]`).classList.add('active');
   if (name === 'compare') renderComparison();
   if (name === 'budget') renderBudget();
+  if (name === 'shipping') renderShipping();
   if (name === 'expenses') renderExpenses();
   if (name === 'checklist') renderChecklist();
 }
@@ -364,7 +373,14 @@ function openProductModal(id) {
       document.getElementById('p-notes').value = p.notes || '';
       document.getElementById('p-status').value = p.status || 'considering';
       document.getElementById('p-photo-preview').innerHTML = p.photo ? `<img src="${p.photo}" data-img="${p.photo}"><button class="remove-photo" onclick="document.getElementById('p-photo-preview').innerHTML=''">× حذف الصورة</button>` : '';
-      updateQRPreview(); updateTotalPreview();
+      document.getElementById('p-cbm-mode').value = p.cbm_mode || 'none';
+      document.getElementById('p-cbm-unit').value = p.cbm_unit || '';
+      document.getElementById('p-carton-l').value = p.carton_l || '';
+      document.getElementById('p-carton-w').value = p.carton_w || '';
+      document.getElementById('p-carton-h').value = p.carton_h || '';
+      document.getElementById('p-units-carton').value = p.units_carton || '';
+      toggleCbmMode();
+      updateQRPreview(); updateTotalPreview(); updateCbmPreview();
     }
   } else {
     ['p-name','p-price-rmb','p-qty-villa','p-model','p-notes'].forEach(id=>document.getElementById(id).value='');
@@ -377,6 +393,9 @@ function openProductModal(id) {
     document.getElementById('p-price-qr-preview').value = '';
     document.getElementById('p-qty-total').value = '';
     document.getElementById('p-total-qr').value = '';
+    document.getElementById('p-cbm-mode').value = 'none';
+    ['p-cbm-unit','p-carton-l','p-carton-w','p-carton-h','p-units-carton'].forEach(id=>document.getElementById(id).value='');
+    toggleCbmMode();
   }
   document.getElementById('product-modal').classList.add('show');
 }
@@ -393,6 +412,46 @@ function updateTotalPreview() {
   document.getElementById('p-qty-total').value = totalQty + ' ' + UNITS[document.getElementById('p-unit').value];
   document.getElementById('p-total-qr').value = (totalQty * rmb * settings.exchangeRate).toFixed(2) + ' QR';
 }
+function toggleCbmMode() {
+  const mode = document.getElementById('p-cbm-mode').value;
+  document.getElementById('cbm-direct-fields').style.display = mode === 'direct' ? 'block' : 'none';
+  document.getElementById('cbm-carton-fields').style.display = mode === 'carton' ? 'block' : 'none';
+  document.getElementById('cbm-preview-box').style.display = mode === 'none' ? 'none' : 'block';
+}
+// Returns CBM per single unit based on current modal inputs
+function calcCbmPerUnitFromInputs() {
+  const mode = document.getElementById('p-cbm-mode').value;
+  if (mode === 'direct') {
+    return parseFloat(document.getElementById('p-cbm-unit').value) || 0;
+  } else if (mode === 'carton') {
+    const l = parseFloat(document.getElementById('p-carton-l').value) || 0;
+    const w = parseFloat(document.getElementById('p-carton-w').value) || 0;
+    const h = parseFloat(document.getElementById('p-carton-h').value) || 0;
+    const units = parseFloat(document.getElementById('p-units-carton').value) || 0;
+    if (units <= 0) return 0;
+    const cartonCbm = (l * w * h) / 1000000; // cm³ → m³
+    return cartonCbm / units;
+  }
+  return 0;
+}
+function updateCbmPreview() {
+  const perUnit = calcCbmPerUnitFromInputs();
+  const qty = parseFloat(document.getElementById('p-qty-villa').value) || 0;
+  const totalQty = Math.ceil(qty * settings.numVillas * 1.1);
+  const totalCbm = perUnit * totalQty;
+  document.getElementById('cbm-per-unit').textContent = perUnit > 0 ? perUnit.toFixed(4) + ' م³' : '—';
+  document.getElementById('cbm-total').textContent = totalCbm > 0 ? totalCbm.toFixed(2) + ' م³' : '—';
+}
+// Returns CBM per unit from a saved product record
+function productCbmPerUnit(p) {
+  if (p.cbm_mode === 'direct') return p.cbm_unit || 0;
+  if (p.cbm_mode === 'carton') {
+    const units = p.units_carton || 0;
+    if (units <= 0) return 0;
+    return ((p.carton_l||0) * (p.carton_w||0) * (p.carton_h||0) / 1000000) / units;
+  }
+  return 0;
+}
 async function saveProduct() {
   const name = document.getElementById('p-name').value.trim();
   if (!name) { alert('اسم المنتج مطلوب'); return; }
@@ -408,6 +467,12 @@ async function saveProduct() {
     model: document.getElementById('p-model').value,
     notes: document.getElementById('p-notes').value,
     status: document.getElementById('p-status').value, photo,
+    cbm_mode: document.getElementById('p-cbm-mode').value,
+    cbm_unit: parseFloat(document.getElementById('p-cbm-unit').value) || 0,
+    carton_l: parseFloat(document.getElementById('p-carton-l').value) || 0,
+    carton_w: parseFloat(document.getElementById('p-carton-w').value) || 0,
+    carton_h: parseFloat(document.getElementById('p-carton-h').value) || 0,
+    units_carton: parseFloat(document.getElementById('p-units-carton').value) || 0,
     catalog_key: existing ? existing.catalog_key : null,
     created_at: existing ? existing.created_at : new Date().toISOString()
   };
@@ -558,8 +623,62 @@ async function deleteExpense(id) {
   await deleteExpenseFromServer(id);
   renderAll();
 }
+
+// ============ SHIPPING (CBM) ============
+async function saveShippingSettings() {
+  settings.cbmRate = parseFloat(document.getElementById('cbm-rate').value) || 0;
+  await saveSettingsToServer();
+  renderShipping();
+}
+function renderShipping() {
+  const container = document.getElementById('shipping-summary');
+  // compute total CBM across all products with CBM data
+  let totalCbm = 0;
+  const rows = [];
+  products.forEach(p => {
+    const perUnit = productCbmPerUnit(p);
+    if (perUnit > 0) {
+      const totalQty = Math.ceil((p.qty_per_villa||0) * settings.numVillas * 1.1);
+      const cbm = perUnit * totalQty;
+      totalCbm += cbm;
+      rows.push({ name: p.name, qty: totalQty, unit: p.unit, cbm });
+    }
+  });
+
+  const rate = settings.cbmRate || 0;
+  const shippingCost = totalCbm * rate;
+
+  // pick best container suggestion
+  let containerHtml = '';
+  if (totalCbm > 0) {
+    containerHtml = '<div class="card"><h4 style="margin:0 0 12px; font-size:14px; font-weight:600;">الكونتينرات المقترحة</h4>';
+    CONTAINERS.forEach(c => {
+      const count = Math.ceil(totalCbm / c.cbm);
+      const fillLast = totalCbm % c.cbm === 0 ? 100 : ((totalCbm % c.cbm) / c.cbm * 100);
+      containerHtml += `<div style="display:flex; justify-content:space-between; align-items:center; padding:8px 10px; background:#f8fafc; border-radius:8px; margin-bottom:6px; font-size:13px;"><span>${c.name} <span style="color:#94a3b8; font-size:11px;">(${c.cbm} م³)</span></span><span style="font-weight:600;">${count} كونتينر</span></div>`;
+    });
+    containerHtml += '<p style="font-size:11px; color:#94a3b8; margin:6px 0 0;">الأرقام تقريبية. الكونتينر ما يُملأ ١٠٠٪ عادةً، احسب هامش ٥-١٠٪.</p></div>';
+  }
+
+  let summaryCard = `<div class="card" style="background:linear-gradient(135deg,#0f172a,#1e293b); color:white; border:none;"><div style="font-size:12px; opacity:0.7;">إجمالي حجم الشحن</div><div style="font-size:28px; font-weight:700; margin:4px 0;">${totalCbm.toFixed(2)} م³ (CBM)</div>${rate > 0 ? `<div style="font-size:13px; opacity:0.85;">تكلفة شحن تقديرية: ${shippingCost.toLocaleString('en-US',{maximumFractionDigits:0})} QR</div>` : '<div style="font-size:11px; opacity:0.6;">أدخل سعر الـ CBM فوق لحساب التكلفة</div>'}</div>`;
+
+  let listHtml = '';
+  if (rows.length === 0) {
+    listHtml = `<div class="empty"><span class="empty-icon">📦</span>ما فيه منتجات لها بيانات حجم بعد.<br><span style="font-size:11px">افتح أي منتج، وفي قسم "الشحن CBM" أدخل الأبعاد أو الـ CBM الجاهز.</span></div>`;
+  } else {
+    listHtml = '<div class="card"><h4 style="margin:0 0 12px; font-size:14px; font-weight:600;">تفصيل المنتجات</h4>';
+    rows.sort((a,b) => b.cbm - a.cbm).forEach(r => {
+      listHtml += `<div style="display:flex; justify-content:space-between; align-items:center; padding:8px 10px; background:#f8fafc; border-radius:8px; margin-bottom:6px; font-size:12px;"><div><strong>${escapeHtml(r.name)}</strong><div style="color:#94a3b8; font-size:11px;">${r.qty} ${UNITS[r.unit]||''}</div></div><span style="font-weight:600;">${r.cbm.toFixed(2)} م³</span></div>`;
+    });
+    listHtml += '</div>';
+  }
+
+  container.innerHTML = summaryCard + containerHtml + listHtml;
+}
+
 function renderExpenses() {
   const summary = document.getElementById('expenses-summary');
+  // totals by category
   const byCat = {};
   let grand = 0;
   Object.keys(EXPENSE_CATEGORIES).forEach(k => byCat[k] = 0);
@@ -672,7 +791,7 @@ function updateStats() {
   document.getElementById('stat-personal').textContent = totalPersonal.toLocaleString('en-US',{maximumFractionDigits:0});
   document.getElementById('stat-grand').textContent = grand.toLocaleString('en-US',{maximumFractionDigits:0});
 }
-function renderAll() { updateStats(); renderChecklist(); renderProducts(); renderSuppliers(); renderExpenses(); }
+function renderAll() { updateStats(); renderChecklist(); renderProducts(); renderSuppliers(); renderExpenses(); renderShipping(); }
 
 function exportData() {
   const data = { products, suppliers, expenses, settings, exportedAt: new Date().toISOString() };
